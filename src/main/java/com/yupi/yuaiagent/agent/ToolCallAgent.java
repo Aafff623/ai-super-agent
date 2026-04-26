@@ -110,6 +110,10 @@ public class ToolCallAgent extends ReActAgent {
      */
     @Override
     public String act() {
+        // 处理 null 的 toolCallChatResponse
+        if (toolCallChatResponse == null) {
+            return "没有工具需要调用";
+        }
         if (!toolCallChatResponse.hasToolCalls()) {
             return "没有工具需要调用";
         }
@@ -119,6 +123,9 @@ public class ToolCallAgent extends ReActAgent {
         // 记录消息上下文，conversationHistory 已经包含了助手消息和工具调用返回的结果
         setMessageList(toolExecutionResult.conversationHistory());
         ToolResponseMessage toolResponseMessage = (ToolResponseMessage) CollUtil.getLast(toolExecutionResult.conversationHistory());
+        if (toolResponseMessage == null) {
+            return "工具调用成功，但没有返回结果";
+        }
         // 判断是否调用了终止工具
         boolean terminateToolCalled = toolResponseMessage.getResponses().stream()
                 .anyMatch(response -> response.name().equals("doTerminate"));

@@ -11,7 +11,8 @@ spring:
   ai:
     dashscope:
       # 需要替换为你自己的 key
-      api-key: your-api-key
+      api-key: sk-28895addd69a480bbc8c26a0edb23fab
+      base-url: https://dashscope.aliyuncs.com
       chat:
         options:
           model: qwen-plus

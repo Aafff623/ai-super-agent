@@ -1,5 +1,6 @@
 package com.yupi.yuaiagent.rag;
 
+import cn.hutool.core.util.StrUtil;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.rag.Query;
@@ -30,6 +31,10 @@ public class QueryRewriter {
      * @return
      */
     public String doQueryRewrite(String prompt) {
+        // 处理 null 和空值
+        if (StrUtil.isBlank(prompt)) {
+            return prompt;
+        }
         Query query = new Query(prompt);
         // 执行查询重写
         Query transformedQuery = queryTransformer.transform(query);
