@@ -9,13 +9,15 @@ spring:
 #    username: root
 #    password: 123456
   ai:
+    # 阿里的 DashScope 源
     dashscope:
-      # 需要替换为你自己的 key
+      # todo: 替换成自己的 key
       api-key: sk-28895addd69a480bbc8c26a0edb23fab
       base-url: https://dashscope.aliyuncs.com
       chat:
         options:
           model: qwen-plus
+    # ollama 自部署模型的源头
     ollama:
       base-url: http://localhost:11434
       chat:

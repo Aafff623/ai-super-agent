@@ -16,6 +16,8 @@ import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.converter.BeanOutputConverter;
+import org.springframework.ai.converter.ListOutputConverter;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -26,6 +28,7 @@ import java.util.List;
 
 @Component
 @Slf4j
+// 使用 ChatClient：高级封装，可以配置记忆、拦截器、模板等, 而非没有记忆、没有额外处理的 ChatModel
 public class LoveApp {
 
     private final ChatClient chatClient;
@@ -36,8 +39,7 @@ public class LoveApp {
             "引导用户详述事情经过、对方反应及自身想法，以便给出专属解决方案。";
 
     /**
-     * 初始化 ChatClient
-     *
+     *  构造恋爱大师的聊天客户端
      * @param dashscopeChatModel
      */
     public LoveApp(ChatModel dashscopeChatModel) {
@@ -49,21 +51,23 @@ public class LoveApp {
                 .chatMemoryRepository(new InMemoryChatMemoryRepository())
                 .maxMessages(20)
                 .build();
+        // 建造者模式构造 ChatClient
         chatClient = ChatClient.builder(dashscopeChatModel)
+                // 设置系统的提示词 (定义 AI 的固定人设)
                 .defaultSystem(SYSTEM_PROMPT)
+                // 配置拦截器链
                 .defaultAdvisors(
-                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
-                        // 自定义日志 Advisor，可按需开启
+                        MessageChatMemoryAdvisor.builder(chatMemory).build(), // 在发送请求前把历史对话塞进当前的Prompt里，让AI看到上下文
+                        // 自定义日志 Advisor，记录每次请求和响应的日志（方便调试), 检查用户输入是否包含违禁词
                         new MyLoggerAdvisor()
-//                        // 自定义推理增强 Advisor，可按需开启
+//                        // 让AI重读问题来提高回答质量，可按需开启, 不过会造成 token 翻倍
 //                       ,new ReReadingAdvisor()
                 )
                 .build();
     }
 
     /**
-     * AI 基础对话（支持多轮对话记忆）
-     *
+     * 多轮对话记忆 - 基于内存的对话记忆
      * @param message
      * @param chatId
      * @return
@@ -72,6 +76,7 @@ public class LoveApp {
         ChatResponse chatResponse = chatClient
                 .prompt()
                 .user(message)
+                // 指定对话的 id 和 对话记忆的大小
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
                 .chatResponse();
@@ -96,13 +101,13 @@ public class LoveApp {
                 .content();
     }
 
+    // 想要结构化的输出, 即可以直接在程序里使用的Java对象类示例(将AI的Prompt -> json -> java对象),  定义报告结构（record是Java14+的简洁类）
     record LoveReport(String title, List<String> suggestions) {
 
     }
 
     /**
      * AI 恋爱报告功能（实战结构化输出）
-     *
      * @param message
      * @param chatId
      * @return
@@ -110,11 +115,12 @@ public class LoveApp {
     public LoveReport doChatWithReport(String message, String chatId) {
         LoveReport loveReport = chatClient
                 .prompt()
-                .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表")
+                .system(SYSTEM_PROMPT + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表") // 附加的指令
                 .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)) // 多轮对话记忆
                 .call()
-                .entity(LoveReport.class);
+                // 这个是 转成 java 的实体类, 还有其他的: MapOutputConverter：转成Map, ListOutputConverter：转成List, BeanOutputConverter：转成任意Bean
+                .entity(LoveReport.class); // 关键：告诉框架转成 LoveReport
         log.info("loveReport: {}", loveReport);
         return loveReport;
     }
@@ -135,7 +141,7 @@ public class LoveApp {
 
     /**
      * 和 RAG 知识库进行对话
-     *
+     * Spring AI 内置的 QuestionAnswerAdvisor，能自动完成 “检索 → 增强 prompt → 调用模型 ”
      * @param message
      * @param chatId
      * @return
@@ -148,15 +154,11 @@ public class LoveApp {
                 // 使用改写后的查询
                 .user(rewrittenMessage)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
-                // 开启日志，便于观察效果
-                .advisors(new MyLoggerAdvisor())
-                // 应用 RAG 知识库问答
-                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
-                // 应用 RAG 检索增强服务（基于云知识库服务）
-//                .advisors(loveAppRagCloudAdvisor)
-                // 应用 RAG 检索增强服务（基于 PgVector 向量存储）
-//                .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
-                // 应用自定义的 RAG 检索增强服务（文档查询器 + 上下文增强器）
+                .advisors(new MyLoggerAdvisor()) // 日志
+                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore)) // rag增强, 底层: 调用 vectorStore.similaritySearch(userText)，返回最相似的 N 个 Document。
+//              .advisors(loveAppRagCloudAdvisor) // 直接使用云检索 Advisor
+//              .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore)) // 基于 pgvector 的向量数据库进行 RAG 增强
+                 // 应用自定义的 RAG 检索增强服务（文档查询器 + 上下文增强器）
 //                .advisors(
 //                        LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(
 //                                loveAppVectorStore, "单身"

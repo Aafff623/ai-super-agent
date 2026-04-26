@@ -15,7 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 基于文件持久化的对话记忆
+ * 基于文件持久化的对话记忆 (使用 Kryo 高性能序列化库，它不需要无参构造，支持复杂继承关系。)
+ * 需要实现: ChatMemory 的三个方法
  */
 public class FileBasedChatMemory implements ChatMemory {
 
@@ -23,9 +24,9 @@ public class FileBasedChatMemory implements ChatMemory {
     private static final Kryo kryo = new Kryo();
 
     static {
-        kryo.setRegistrationRequired(false);
+        kryo.setRegistrationRequired(false); // 不需要预先注册类
         // 设置实例化策略
-        kryo.setInstantiatorStrategy(new StdInstantiatorStrategy());
+        kryo.setInstantiatorStrategy(new StdInstantiatorStrategy()); // 支持无public构造器的类
     }
 
     // 构造对象时，指定文件保存目录
@@ -37,6 +38,7 @@ public class FileBasedChatMemory implements ChatMemory {
         }
     }
 
+    // 添加新消息，保存到文件
     @Override
     public void add(String conversationId, List<Message> messages) {
         List<Message> conversationMessages = getOrCreateConversation(conversationId);
@@ -44,11 +46,13 @@ public class FileBasedChatMemory implements ChatMemory {
         saveConversation(conversationId, conversationMessages);
     }
 
+    // 读取最近N条消息
     @Override
     public List<Message> get(String conversationId) {
         return getOrCreateConversation(conversationId);
     }
 
+    // 删除整个会话
     @Override
     public void clear(String conversationId) {
         File file = getConversationFile(conversationId);
@@ -56,6 +60,8 @@ public class FileBasedChatMemory implements ChatMemory {
             file.delete();
         }
     }
+
+    // 如果需要更换其他的存储方式, 那么需要更改  getOrCreateConversation 和 saveConversation的读写逻辑
 
     private List<Message> getOrCreateConversation(String conversationId) {
         File file = getConversationFile(conversationId);

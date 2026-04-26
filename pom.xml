@@ -107,7 +107,7 @@
             <artifactId>langchain4j-community-dashscope</artifactId>
             <version>1.0.0-beta2</version>
         </dependency>
-        <!-- 支持结构化输出 -->
+        <!-- 支持结构化输出 将AI输出转为Java对象,比如后续支持的 record 特性的配合 -->
         <dependency>
             <groupId>com.github.victools</groupId>
             <artifactId>jsonschema-generator</artifactId>
