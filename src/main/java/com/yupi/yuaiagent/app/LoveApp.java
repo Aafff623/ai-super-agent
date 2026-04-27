@@ -171,54 +171,49 @@ public class LoveApp {
         return content;
     }
 
-    // AI 调用工具能力
+    // 注入所有注册的工具
     @Resource
     private ToolCallback[] allTools;
 
     /**
-     * AI 恋爱报告功能（支持调用工具）
-     *
+     * AI 恋爱报告功能（支持调用工具), chatClient 内部会判断：若用户问题需要工具，则返回“工具调用请求”，框架自动执行工具，并将结果再次发给AI，直到生成最终答案。
+     * 不同的提示词可能会触发不同的工具, 但是 AI 具有随机性, 可能需要微调描述进行选择工具的调整
      * @param message
      * @param chatId
      * @return
      */
     public String doChatWithTools(String message, String chatId) {
         ChatResponse chatResponse = chatClient
-                .prompt()
-                .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
-                // 开启日志，便于观察效果
-                .advisors(new MyLoggerAdvisor())
-                .toolCallbacks(allTools)
-                .call()
-                .chatResponse();
+                .prompt().user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)) // 会话记忆
+                .advisors(new MyLoggerAdvisor())    // 开启日志，便于观察效果
+                .toolCallbacks(allTools)            // 关键：把工具数组提供给AI
+                .call().chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
         log.info("content: {}", content);
         return content;
     }
 
-    // AI 调用 MCP 服务
-
+    //Spring AI 自动把每个 MCP 服务暴露的工具包装成 ToolCallback，然后通过这个 Provider 统一提供。
     @Resource
     private ToolCallbackProvider toolCallbackProvider;
 
     /**
      * AI 恋爱报告功能（调用 MCP 服务）
-     *
      * @param message
      * @param chatId
      * @return
      */
     public String doChatWithMcp(String message, String chatId) {
+
         ChatResponse chatResponse = chatClient
-                .prompt()
-                .user(message)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
-                // 开启日志，便于观察效果
-                .advisors(new MyLoggerAdvisor())
-                .toolCallbacks(toolCallbackProvider)
-                .call()
-                .chatResponse();
+                .prompt().user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)) // 会话记忆
+                .advisors(new MyLoggerAdvisor())        // 开启调试日志观察
+                // toolCallbackProvider.getToolCallbacks() 会返回一个数组，里面是所有 MCP 服务提供的工具。chatClient.tools() 接受这个数组，AI 就能看到并使用这些工具。
+                .toolCallbacks(toolCallbackProvider)    // 关键：把 MCP 提供的工具全部挂上
+                .call().chatResponse();
+
         String content = chatResponse.getResult().getOutput().getText();
         log.info("content: {}", content);
         return content;
