@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
  */
 public class WebSearchTool {
 
-    // SearchAPI 的搜索接口地址
+    // SearchAPI 的搜索接口地址 (付费搜索, 需要key)
     private static final String SEARCH_API_URL = "https://www.searchapi.io/api/v1/search";
 
     private final String apiKey;
@@ -26,6 +26,12 @@ public class WebSearchTool {
         this.apiKey = apiKey;
     }
 
+    /**
+     * 使用 SearchAPI 搜索引擎进行网页搜索
+     * AI可以拿到搜索结果的标题、链接、摘要，然后自行判断哪些有用。
+     * @param query
+     * @return
+     */
     @Tool(description = "Search for information from Baidu Search Engine")
     public String searchWeb(
             @ToolParam(description = "Search query keyword") String query) {

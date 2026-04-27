@@ -1,4 +1,4 @@
-package com.yupi.yuimagesearchmcpserver.tools;
+package com.yupi.yuaiagent.tools;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpUtil;
@@ -13,15 +13,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 图片搜索工具（使用 Pexels API）
+ */
 @Service
 public class ImageSearchTool {
 
-    // 替换为你的 Pexels API 密钥（需从官网申请）
+    // todo: API Key  和 请求地址 (替换成自己的 key ), 可以通过 value 注入
     private static final String API_KEY = "改为你的 API Key";
-
-    // Pexels 常规搜索接口（请以文档为准）
     private static final String API_URL = "https://api.pexels.com/v1/search";
 
+    /**
+     * 使用 Pexels API 搜索图片
+     * @param query
+     * @return 返回中等尺寸的图片链接列表（逗号分隔）
+     */
     @Tool(description = "search image from web")
     public String searchImage(@ToolParam(description = "Search query keyword") String query) {
         try {
@@ -32,28 +38,27 @@ public class ImageSearchTool {
     }
 
     /**
-     * 搜索中等尺寸的图片列表
-     *
+     * 搜索中等尺寸的图片列表 (真正请求 Pexels 的方法)
      * @param query
      * @return
      */
     public List<String> searchMediumImages(String query) {
-        // 设置请求头（包含API密钥）
+        // 构造请求头, 通过请求头传送 API Key
         Map<String, String> headers = new HashMap<>();
         headers.put("Authorization", API_KEY);
 
-        // 设置请求参数（仅包含query，可根据文档补充page、per_page等参数）
+        // 设置请求参数, 用户搜索的关键词
         Map<String, Object> params = new HashMap<>();
         params.put("query", query);
 
-        // 发送 GET 请求
+        // 发送 HTTP GET 请求 (Hutool 工具包)
         String response = HttpUtil.createGet(API_URL)
                 .addHeaders(headers)
                 .form(params)
                 .execute()
                 .body();
 
-        // 解析响应JSON（假设响应结构包含"photos"数组，每个元素包含"medium"字段）
+        // 解析图片的地址, 响应JSON （假设响应结构包含"photos"数组，每个元素包含"medium"字段）
         return JSONUtil.parseObj(response)
                 .getJSONArray("photos")
                 .stream()
