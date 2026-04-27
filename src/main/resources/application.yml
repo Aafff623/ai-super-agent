@@ -5,7 +5,7 @@ spring:
     active: local
 # 临时注释掉，便于大家开发调试和部署（实际填写 PgVector 数据库信息）
 #  datasource:
-#    url: xxx
+#    url: jdbc:postgresql://改为你的公网地址/yu_ai_agent
 #    username: root
 #    password: 123456
   ai:
@@ -22,7 +22,7 @@ spring:
       base-url: http://localhost:11434
       chat:
         model: gemma3:1b
-# 临时注释掉，便于大家开发调试和部署（实际需要启动 MCP 服务）
+# 临时注释掉，便于开发调试和部署（实际需要启动 MCP 服务）
 #    mcp:
 #      client:
 #        sse:
@@ -30,6 +30,7 @@ spring:
 #            server1:
 #              url: http://localhost:8127
 #        stdio:
+#  告诉 Spring AI 从 classpath 下的 mcp-servers.json 加载 MCP 服务定义, Spring Boot 启动时会自动为每个配置的 MCP 服务启动一个子进程，并建立 stdio 通信。
 #          servers-configuration: classpath:mcp-servers.json
 # 临时注释掉，便于大家开发调试和部署（实际需要启动 PgVector 数据库）
 #    vectorstore:
