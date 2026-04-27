@@ -54,11 +54,39 @@ Key design choice / 关键设计决策: `ToolCallAgent` disables Spring AI's bui
 
 > `AiController` 每次收到 `/manus/chat` 请求时创建新的 `YuManus` 实例，请求间无会话持久化。
 
+### Package Structure / 包结构
+
+```
+com.yupi.yuaiagent
+  ├── agent/          # Agent framework (BaseAgent → ReActAgent → ToolCallAgent → YuManus) / 智能体框架
+  ├── agent/model/    # AgentState enum / 智能体状态枚举
+  ├── advisor/        # Spring AI Advisors (MyLoggerAdvisor, ReReadingAdvisor) / Spring AI 增强器
+  ├── app/            # LoveApp — ChatClient-based relationship advisor / 恋爱大师应用
+  ├── chatmemory/     # FileBasedChatMemory (JSON files in ./chat-memory/) / 文件聊天记忆
+  ├── config/         # CorsConfig, MCP client config / 跨域与 MCP 客户端配置
+  ├── constant/       # FileConstant / 文件常量
+  ├── controller/     # AiController, HealthController / 控制器
+  ├── demo/invoke/    # Demo invocations (HTTP, SDK, Spring AI, LangChain4j, Ollama) / 调用示例
+  ├── demo/rag/       # RAG demo (MultiQueryExpanderDemo) / RAG 示例
+  ├── rag/            # RAG pipeline (document loader, vector store configs, query rewriter, enrichers) / RAG 管道
+  └── tools/          # 7 agent tools + ToolRegistration / 7 个智能体工具 + 工具注册
+```
+
 ### Tool Registration / 工具注册
 
-All tools use `@Tool` + `@ToolParam` annotations. `ToolRegistration` (`@Configuration`) creates a single `allTools` bean via `ToolCallbacks.from()`, collecting all 7 tool instances. To add a new tool: create a class with `@Tool` methods, add it to `ToolRegistration.allTools()`.
+All tools use `@Tool` + `@ToolParam` annotations. `ToolRegistration` (`@Configuration`) creates a single `allTools` bean via `ToolCallbacks.from()`, collecting all 7 tool instances / 所有工具使用 `@Tool` + `@ToolParam` 注解。`ToolRegistration`（`@Configuration`）通过 `ToolCallbacks.from()` 创建 `allTools` Bean，收集全部 7 个工具实例:
 
-> 所有工具使用 `@Tool` + `@ToolParam` 注解。`ToolRegistration`（`@Configuration`）通过 `ToolCallbacks.from()` 创建 `allTools` Bean，收集全部 7 个工具实例。新增工具：创建带 `@Tool` 方法的类，添加到 `ToolRegistration.allTools()`。
+| Tool / 工具 | Purpose / 用途 |
+|------|---------|
+| `FileOperationTool` | Read/write/list files / 文件读写与列表 |
+| `WebSearchTool` | Search via SearchAPI / 通过 SearchAPI 搜索 |
+| `WebScrapingTool` | Scrape web pages (Jsoup) / 网页抓取 |
+| `ResourceDownloadTool` | Download resources / 资源下载 |
+| `TerminalOperationTool` | Execute shell commands / 执行终端命令 |
+| `PDFGenerationTool` | Generate PDFs (iText 9 + CJK) / 生成 PDF（iText 9 + 中文支持） |
+| `TerminateTool` | Signal agent completion / 标记智能体完成 |
+
+To add a new tool / 新增工具: create a class with `@Tool` methods, add it to `ToolRegistration.allTools()` / 创建带 `@Tool` 方法的类，添加到 `ToolRegistration.allTools()`。
 
 ### RAG Pipeline / RAG 管道
 
@@ -71,7 +99,7 @@ Markdown files (classpath:document/*.md)
   → QuestionAnswerAdvisor / RetrievalAugmentationAdvisor
 ```
 
-Three vector store backends exist / 三种向量存储后端: SimpleVectorStore (active, in-memory / 当前使用，内存存储), PgVector (commented out, persistent / 已注释，持久化存储), DashScope Cloud (commented out / 已注释，云端存储). Switch by uncommenting the corresponding `@Configuration` and config.
+Three vector store backends / 三种向量存储后端: SimpleVectorStore (active, in-memory / 当前使用，内存存储), PgVector (commented out, persistent / 已注释，持久化存储), DashScope Cloud (commented out / 已注释，云端存储). Switch by uncommenting the corresponding `@Configuration` and config.
 
 > 切换方式：取消对应 `@Configuration` 和配置的注释。
 
@@ -87,19 +115,32 @@ The image search MCP server (`yu-image-search-mcp-server/`) is a **fully indepen
 
 ### API Endpoints / API 端点
 
+Server runs on port 8123 with context path `/api` / 服务运行在 8123 端口，上下文路径为 `/api`。
+
 | Endpoint | Description / 描述 |
 |----------|-------------------|
 | `GET /api/ai/love_app/chat/sync` | Synchronous LoveApp chat / LoveApp 同步聊天 |
-| `GET /api/ai/love_app/chat/sse` | SSE streaming LoveApp chat / LoveApp SSE 流式聊天 |
-| `GET /api/ai/love_app/chat/sse_emitter` | SSE via SseEmitter / 通过 SseEmitter 的 SSE |
-| `GET /api/ai/manus/chat` | YuManus agent (SseEmitter, per-request) / YuManus 智能体（SseEmitter，每次请求新建） |
+| `GET /api/ai/love_app/chat/sse` | SSE streaming LoveApp chat (Flux) / LoveApp SSE 流式聊天（Flux） |
+| `GET /api/ai/love_app/chat/server_sent_event` | SSE with ServerSentEvent wrapper / ServerSentEvent 包装的 SSE |
+| `GET /api/ai/love_app/chat/sse_emitter` | SSE via SseEmitter (3min timeout) / 通过 SseEmitter 的 SSE（3 分钟超时） |
+| `GET /api/ai/manus/chat` | YuManus agent (SseEmitter, per-request, 5min timeout) / YuManus 智能体（SseEmitter，每次请求新建，5 分钟超时） |
 | `GET /api/health/` | Health check / 健康检查 |
 
 ### Key Dependencies / 主要依赖
 
 - Java 21, Spring Boot 3.4.4, Spring AI 1.0.0, Spring AI Alibaba 1.0.0.2
 - DashScope (qwen-plus), Ollama (gemma3:1b), PGVector, MCP Client/Server
+- LangChain4j community-dashscope 1.0.0-beta2
 - Hutool, Jsoup, iText 9 (PDF + CJK / PDF + 中文支持), Kryo (chat memory serialization / 聊天记忆序列化), Knife4j (API docs / API 文档)
+- Lombok 1.18.36, jsonschema-generator 4.38.0
+
+### Frontend / 前端
+
+Vue 3 + Vite + Element Plus frontend in `yu-ai-agent-frontend/`. Two views / Vue 3 + Vite + Element Plus 前端，位于 `yu-ai-agent-frontend/`，包含两个视图:
+- **LoveMaster** (`/`) — SSE streaming chat with LoveApp / SSE 流式恋爱大师聊天
+- **SuperAgent** (`/super-agent`) — WebSocket streaming chat with YuManus / WebSocket 流式超级智能体聊天
+
+API base URL / API 基础地址: `http://localhost:8080/api` (configured in `src/api/index.js` / 配置在 `src/api/index.js`).
 
 ## Development Patterns / 开发模式
 
@@ -121,3 +162,4 @@ The image search MCP server (`yu-image-search-mcp-server/`) is a **fully indepen
 - Spring AI debug logging / Spring AI 调试日志: `logging.level.org.springframework.ai=DEBUG` (already enabled / 已启用)
 - `DataSourceAutoConfiguration` excluded by default — remove exclusion when PgVector is active / 默认排除数据库自动配置，启用 PgVector 时移除排除
 - SSEEmitter timeout / SSEEmitter 超时: 5 minutes (configured in `BaseAgent.runStream()` / 在 `BaseAgent.runStream()` 中配置)
+- API docs available at `/api/swagger-ui.html` (Knife4j) / API 文档地址 `/api/swagger-ui.html`（Knife4j）
