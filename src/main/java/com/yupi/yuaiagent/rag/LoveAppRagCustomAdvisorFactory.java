@@ -9,13 +9,13 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 
 /**
- * 创建自定义的 RAG 检索增强顾问的工厂
+ * 创建自定义的 RAG 检索增强顾问的工厂 根据状态进行过滤
  */
 public class LoveAppRagCustomAdvisorFactory {
 
     /**
      * 创建自定义的 RAG 检索增强顾问
-     *
+     *可 以根据用户当前恋的指定的标签, 检索对应的知识库切片, 工厂模式便于复用。
      * @param vectorStore 向量存储
      * @param status      状态
      * @return 自定义的 RAG 检索增强顾问
@@ -23,7 +23,7 @@ public class LoveAppRagCustomAdvisorFactory {
     public static Advisor createLoveAppRagCustomAdvisor(VectorStore vectorStore, String status) {
         // 过滤特定状态的文档
         Filter.Expression expression = new FilterExpressionBuilder()
-                .eq("status", status)
+                .eq("status", status)  // 只检索 status = 指定值 的文档
                 .build();
         // 创建文档检索器
         DocumentRetriever documentRetriever = VectorStoreDocumentRetriever.builder()
